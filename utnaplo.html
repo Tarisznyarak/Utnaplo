@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Útnapló">
+<meta name="theme-color" content="#14171b">
+<title>Útnapló — km-nyilvántartás</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14171b;
+    --panel:#1c2027;
+    --panel-2:#20252d;
+    --border:#2a2f38;
+    --text:#e9e7e0;
+    --text-dim:#8b929e;
+    --text-faint:#565d68;
+    --amber:#ffb020;
+    --amber-glow:rgba(255,176,32,.35);
+    --teal:#35c9a5;
+    --teal-glow:rgba(53,201,165,.3);
+    --danger:#e2554a;
+    --radius:16px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 800px 400px at 50% -10%, rgba(255,176,32,.07), transparent),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+    min-height:100vh;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:480px;margin:0 auto;padding:18px 16px 40px;}
+
+  /* Header */
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+  .brand{display:flex;flex-direction:column;}
+  .brand .eyebrow{font-size:11px;letter-spacing:.16em;color:var(--text-faint);text-transform:uppercase;font-weight:600;}
+  .brand h1{font-size:20px;margin:2px 0 0;font-weight:800;letter-spacing:-.01em;}
+  .icon-btn{
+    width:38px;height:38px;border-radius:11px;background:var(--panel);
+    border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+    color:var(--text-dim);cursor:pointer;
+  }
+  .icon-btn:active{background:var(--panel-2);}
+
+  /* Odometer card */
+  .odometer-card{
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:22px 20px 18px;
+    margin-bottom:14px;
+    position:relative;
+    overflow:hidden;
+  }
+  .odometer-card::before{
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(400px 120px at 50% 0%, var(--amber-glow), transparent 70%);
+    opacity:.35;pointer-events:none;
+  }
+  .odo-label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-faint);font-weight:600;}
+  .odo-display{
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;
+    font-size:44px;
+    letter-spacing:.02em;
+    color:var(--amber);
+    text-shadow:0 0 18px var(--amber-glow);
+    margin:4px 0 2px;
+    display:flex;align-items:baseline;gap:2px;
+  }
+  .odo-display .unit{font-size:16px;color:var(--text-dim);font-family:'Inter';font-weight:600;margin-left:6px;}
+  .odo-split{display:flex;gap:10px;margin-top:14px;position:relative;}
+  .odo-chip{
+    flex:1;background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:10px;
+    padding:9px 10px;
+  }
+  .odo-chip .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;}
+  .odo-chip.ceges .dot{background:var(--teal);box-shadow:0 0 8px var(--teal-glow);}
+  .odo-chip.magan .dot{background:var(--amber);box-shadow:0 0 8px var(--amber-glow);}
+  .odo-chip .lbl{font-size:11px;color:var(--text-dim);font-weight:600;}
+  .odo-chip .val{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;margin-top:2px;}
+
+  /* Panel generic */
+  .panel{
+    background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px 18px 16px;margin-bottom:14px;
+  }
+  .panel h2{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);font-weight:700;margin:0 0 14px;}
+
+  /* Category switch */
+  .switch{display:flex;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:12px;padding:4px;gap:4px;}
+  .switch button{
+    flex:1;padding:11px 8px;border:none;border-radius:9px;background:transparent;color:var(--text-dim);
+    font-family:'Inter';font-weight:700;font-size:14px;cursor:pointer;transition:.15s;
+  }
+  .switch button.active.ceges{background:var(--teal);color:#0b1a16;}
+  .switch button.active.magan{background:var(--amber);color:#231602;}
+
+  /* Tracker */
+  .trip-live{display:none;text-align:center;padding:6px 0 4px;}
+  .trip-live.active{display:block;}
+  .trip-live .big{
+    font-family:'JetBrains Mono',monospace;font-size:38px;font-weight:700;color:var(--text);
+    letter-spacing:.01em;
+  }
+  .trip-live .big .u{font-size:15px;color:var(--text-dim);font-family:'Inter';font-weight:600;}
+  .trip-live .meta{display:flex;justify-content:center;gap:22px;margin-top:8px;color:var(--text-dim);font-size:12.5px;font-family:'JetBrains Mono',monospace;}
+  .pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--danger);margin-right:6px;animation:pulse 1.4s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+  .gps-status{font-size:11.5px;color:var(--text-faint);text-align:center;margin-top:10px;min-height:14px;}
+
+  .track-btn{
+    width:100%;padding:16px;border:none;border-radius:13px;font-size:15.5px;font-weight:800;
+    font-family:'Inter';cursor:pointer;margin-top:12px;letter-spacing:.01em;
+  }
+  .track-btn.start{background:var(--teal);color:#0b1a16;}
+  .track-btn.stop{background:var(--danger);color:#2a0a08;}
+  .track-btn:active{filter:brightness(.92);}
+
+  /* Save confirm */
+  .save-box{display:none;margin-top:14px;padding-top:14px;border-top:1px dashed var(--border);}
+  .save-box.active{display:block;}
+  .save-row{display:flex;gap:10px;align-items:center;margin-bottom:10px;}
+  .save-row label{font-size:12.5px;color:var(--text-dim);flex:0 0 96px;}
+  .save-row input{
+    flex:1;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:9px;
+    padding:9px 10px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:14px;
+  }
+  .save-actions{display:flex;gap:8px;}
+  .save-actions button{flex:1;padding:12px;border-radius:11px;border:none;font-weight:700;font-family:'Inter';cursor:pointer;font-size:14px;}
+  .btn-primary{background:var(--amber);color:#231602;}
+  .btn-ghost{background:transparent;color:var(--text-dim);border:1px solid var(--border) !important;}
+
+  /* History */
+  .trip-item{
+    display:flex;align-items:center;justify-content:space-between;padding:11px 2px;
+    border-bottom:1px solid var(--border);
+  }
+  .trip-item:last-child{border-bottom:none;}
+  .trip-left{display:flex;align-items:center;gap:10px;}
+  .cat-dot{width:9px;height:9px;border-radius:50%;flex:none;}
+  .cat-dot.ceges{background:var(--teal);}
+  .cat-dot.magan{background:var(--amber);}
+  .trip-date{font-size:12px;color:var(--text-faint);}
+  .trip-km{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;}
+  .trip-del{background:none;border:none;color:var(--text-faint);font-size:17px;cursor:pointer;padding:4px 8px;}
+  .empty{color:var(--text-faint);font-size:13px;text-align:center;padding:14px 0;}
+
+  /* Stats */
+  .stat-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13.5px;}
+  .stat-row:last-child{border-bottom:none;}
+  .stat-row .k{color:var(--text-dim);}
+  .stat-row .v{font-family:'JetBrains Mono',monospace;font-weight:700;}
+  .bar-outer{height:9px;border-radius:5px;background:rgba(0,0,0,.3);overflow:hidden;display:flex;margin:12px 0 4px;}
+  .bar-ceges{background:var(--teal);}
+  .bar-magan{background:var(--amber);}
+  .bar-legend{display:flex;justify-content:space-between;font-size:11px;color:var(--text-faint);}
+
+  .export-btn{
+    width:100%;padding:13px;border-radius:11px;border:1px solid var(--border);background:transparent;
+    color:var(--text-dim);font-weight:700;font-family:'Inter';cursor:pointer;margin-top:6px;font-size:13.5px;
+  }
+
+  /* Overlay / setup */
+  .overlay{
+    position:fixed;inset:0;background:rgba(10,11,13,.88);backdrop-filter:blur(4px);
+    display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;
+  }
+  .overlay.hidden{display:none;}
+  .modal{
+    background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:24px 22px;
+    max-width:380px;width:100%;
+  }
+  .modal h3{margin:0 0 6px;font-size:18px;font-weight:800;}
+  .modal p{color:var(--text-dim);font-size:13.5px;line-height:1.5;margin:0 0 16px;}
+  .modal input{
+    width:100%;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:11px;
+    padding:13px 14px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:17px;margin-bottom:14px;
+  }
+  .modal button{
+    width:100%;padding:14px;border:none;border-radius:11px;background:var(--amber);color:#231602;
+    font-weight:800;font-size:15px;cursor:pointer;font-family:'Inter';
+  }
+  .footnote{text-align:center;color:var(--text-faint);font-size:11px;margin-top:18px;line-height:1.5;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <span class="eyebrow">Kilométer-nyilvántartás</span>
+      <h1>Útnapló</h1>
+    </div>
+    <button class="icon-btn" id="settingsBtn" title="Kezdő km beállítása">⚙</button>
+  </header>
+
+  <div class="odometer-card">
+    <div class="odo-label">Összes megtett táv</div>
+    <div class="odo-display"><span id="odoTotal">000000</span><span class="unit">km</span></div>
+    <div class="odo-split">
+      <div class="odo-chip ceges">
+        <div class="lbl"><span class="dot"></span>Céges</div>
+        <div class="val" id="odoCeges">0 km</div>
+      </div>
+      <div class="odo-chip magan">
+        <div class="lbl"><span class="dot"></span>Magán</div>
+        <div class="val" id="odoMagan">0 km</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Új út rögzítése</h2>
+    <div class="switch" id="catSwitch">
+      <button class="ceges" data-cat="ceges">Céges</button>
+      <button class="magan active" data-cat="magan">Magán</button>
+    </div>
+
+    <div class="trip-live" id="tripLive">
+      <div class="big"><span class="pulse"></span><span id="liveKm">0.00</span><span class="u"> km</span></div>
+      <div class="meta">
+        <span id="liveTime">00:00</span>
+        <span id="liveSpeed">0 km/h</span>
+        <span id="liveAcc">—</span>
+      </div>
+    </div>
+    <div class="gps-status" id="gpsStatus"></div>
+
+    <button class="track-btn start" id="trackBtn">Indítás</button>
+
+    <div class="save-box" id="saveBox">
+      <div class="save-row">
+        <label>Megtett táv</label>
+        <input type="number" step="0.01" id="finalKmInput">
+      </div>
+      <div class="save-row">
+        <label>Megjegyzés</label>
+        <input type="text" id="noteInput" placeholder="opcionális">
+      </div>
+      <div class="save-actions">
+        <button class="btn-ghost" id="discardBtn">Elvetés</button>
+        <button class="btn-primary" id="saveBtn">Mentés</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Összesítés</h2>
+    <div class="stat-row"><span class="k">Kezdő km</span><span class="v" id="statStart">—</span></div>
+    <div class="stat-row"><span class="k">Jelenlegi km</span><span class="v" id="statCurrent">—</span></div>
+    <div class="stat-row"><span class="k">Rögzített utak</span><span class="v" id="statTrips">0</span></div>
+    <div class="bar-outer"><div class="bar-ceges" id="barCeges" style="width:0%"></div><div class="bar-magan" id="barMagan" style="width:100%"></div></div>
+    <div class="bar-legend"><span id="pctCeges">Céges 0%</span><span id="pctMagan">Magán 0%</span></div>
+    <button class="export-btn" id="exportBtn">Exportálás CSV-be</button>
+  </div>
+
+  <div class="panel">
+    <h2>Útnapló előzmények</h2>
+    <div id="tripList"><div class="empty">Még nincs rögzített út.</div></div>
+  </div>
+
+  <div class="footnote">A táv GPS-koordináták alapján, futó összegzéssel számított becslés. Pontos hivatalos nyilvántartáshoz vesd össze a műszerfal kilométeróra állásával.</div>
+</div>
+
+<div class="overlay" id="setupOverlay">
+  <div class="modal">
+    <h3>Kezdő kilométeróra-állás</h3>
+    <p>Add meg, hány km van jelenleg az autóban. Innen fog számolni az alkalmazás minden megtett utat.</p>
+    <input type="number" id="setupInput" placeholder="pl. 2111" inputmode="decimal">
+    <button id="setupSave">Mentés és kezdés</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const LS_KEY = 'utnaplo_state_v1';
+  const $ = id => document.getElementById(id);
+
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if(raw) return JSON.parse(raw);
+    }catch(e){}
+    return null;
+  }
+  function saveState(){
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  }
+
+  let state = loadState() || { startKm:null, trips:[] };
+
+  function fmt(n, dec){
+    dec = dec===undefined?0:dec;
+    return Number(n).toLocaleString('hu-HU', {minimumFractionDigits:dec, maximumFractionDigits:dec});
+  }
+
+  function totals(){
+    let ceges=0, magan=0;
+    state.trips.forEach(t=>{
+      if(t.cat==='ceges') ceges += t.km; else magan += t.km;
+    });
+    return {ceges, magan, sum: ceges+magan};
+  }
+
+  function render(){
+    const t = totals();
+    const current = (state.startKm||0) + t.sum;
+    $('odoTotal').textContent = fmt(current,0).padStart(6,'0');
+    $('odoCeges').textContent = fmt(t.ceges,1)+' km';
+    $('odoMagan').textContent = fmt(t.magan,1)+' km';
+    $('statStart').textContent = state.startKm!=null ? fmt(state.startKm,0)+' km' : '—';
+    $('statCurrent').textContent = fmt(current,1)+' km';
+    $('statTrips').textContent = state.trips.length;
+
+    const pctC = t.sum>0 ? (t.ceges/t.sum*100) : 0;
+    const pctM = 100-pctC;
+    $('barCeges').style.width = pctC+'%';
+    $('barMagan').style.width = pctM+'%';
+    $('pctCeges').textContent = 'Céges '+Math.round(pctC)+'%';
+    $('pctMagan').textContent = 'Magán '+Math.round(pctM)+'%';
+
+    const list = $('tripList');
+    if(state.trips.length===0){
+      list.innerHTML = '<div class="empty">Még nincs rögzített út.</div>';
+    }else{
+      list.innerHTML = state.trips.slice().reverse().map(trip=>{
+        const d = new Date(trip.ts);
+        const dateStr = d.toLocaleDateString('hu-HU',{year:'numeric',month:'2-digit',day:'2-digit'}) + ' · ' + d.toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'});
+        return `<div class="trip-item" data-id="${trip.id}">
+          <div class="trip-left">
+            <span class="cat-dot ${trip.cat}"></span>
+            <div>
+              <div class="trip-km">${fmt(trip.km,2)} km</div>
+              <div class="trip-date">${dateStr}${trip.note? ' · '+escapeHtml(trip.note):''}</div>
+            </div>
+          </div>
+          <button class="trip-del" data-del="${trip.id}">✕</button>
+        </div>`;
+      }).join('');
+    }
+
+    $('setupOverlay').classList.toggle('hidden', state.startKm!=null);
+  }
+
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---- Setup ----
+  $('setupSave').addEventListener('click', ()=>{
+    const v = parseFloat($('setupInput').value);
+    if(isNaN(v) || v<0){ $('setupInput').focus(); return; }
+    state.startKm = v;
+    saveState(); render();
+  });
+  $('settingsBtn').addEventListener('click', ()=>{
+    const cur = state.startKm||0;
+    const v = prompt('Kezdő kilométeróra-állás módosítása:', cur);
+    if(v===null) return;
+    const num = parseFloat(v);
+    if(!isNaN(num) && num>=0){ state.startKm = num; saveState(); render(); }
+  });
+
+  // ---- Category switch ----
+  let selectedCat = 'magan';
+  $('catSwitch').addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-cat]');
+    if(!btn || tracking) return;
+    selectedCat = btn.dataset.cat;
+    document.querySelectorAll('#catSwitch button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+
+  // ---- GPS tracking ----
+  let tracking = false;
+  let watchId = null;
+  let lastPos = null;
+  let distanceM = 0;
+  let startTime = null;
+  let timerInt = null;
+  let lastGoodSpeed = 0;
+
+  function haversine(lat1, lon1, lat2, lon2){
+    const R = 6371000;
+    const toRad = d => d*Math.PI/180;
+    const dLat = toRad(lat2-lat1);
+    const dLon = toRad(lon2-lon1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+    const c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R*c;
+  }
+
+  function updateLiveUI(){
+    $('liveKm').textContent = (distanceM/1000).toFixed(2);
+    const elapsed = Math.floor((Date.now()-startTime)/1000);
+    const mm = String(Math.floor(elapsed/60)).padStart(2,'0');
+    const ss = String(elapsed%60).padStart(2,'0');
+    $('liveTime').textContent = mm+':'+ss;
+    $('liveSpeed').textContent = Math.round(lastGoodSpeed*3.6)+' km/h';
+  }
+
+  function startTracking(){
+    if(!('geolocation' in navigator)){
+      $('gpsStatus').textContent = 'A böngésző nem támogatja a helymeghatározást.';
+      return;
+    }
+    tracking = true;
+    distanceM = 0; lastPos = null; startTime = Date.now(); lastGoodSpeed = 0;
+    $('tripLive').classList.add('active');
+    $('trackBtn').textContent = 'Megállítás';
+    $('trackBtn').classList.remove('start'); $('trackBtn').classList.add('stop');
+    $('saveBox').classList.remove('active');
+    $('gpsStatus').textContent = 'GPS-jel keresése…';
+
+    timerInt = setInterval(updateLiveUI, 1000);
+
+    watchId = navigator.geolocation.watchPosition(pos=>{
+      const {latitude, longitude, accuracy, speed} = pos.coords;
+      $('liveAcc').textContent = '±'+Math.round(accuracy)+'m';
+      $('gpsStatus').textContent = 'GPS aktív, jel rögzítve.';
+
+      if(accuracy && accuracy > 35){
+        return; // too imprecise, skip this fix
+      }
+      if(speed!=null && speed>=0) lastGoodSpeed = speed;
+
+      if(lastPos){
+        const d = haversine(lastPos.latitude, lastPos.longitude, latitude, longitude);
+        const dt = (pos.timestamp - lastPos.timestamp)/1000;
+        const impliedSpeed = dt>0 ? d/dt : 0;
+        // filter GPS jumps: ignore if implausible speed (>55 m/s ~ 200km/h) or near-zero noise
+        if(d < 250 && impliedSpeed < 55){
+          if(d > 1.5) distanceM += d; // ignore sub-1.5m jitter
+        }
+      }
+      lastPos = {latitude, longitude, timestamp: pos.timestamp};
+      updateLiveUI();
+    }, err=>{
+      $('gpsStatus').textContent = 'GPS hiba: ' + (err.message || 'nincs hozzáférés.');
+    }, {
+      enableHighAccuracy:true,
+      maximumAge:1000,
+      timeout:15000
+    });
+  }
+
+  function stopTracking(){
+    tracking = false;
+    if(watchId!=null) navigator.geolocation.clearWatch(watchId);
+    if(timerInt) clearInterval(timerInt);
+    $('trackBtn').textContent = 'Indítás';
+    $('trackBtn').classList.add('start'); $('trackBtn').classList.remove('stop');
+    $('gpsStatus').textContent = '';
+
+    $('finalKmInput').value = (distanceM/1000).toFixed(2);
+    $('noteInput').value = '';
+    $('saveBox').classList.add('active');
+  }
+
+  $('trackBtn').addEventListener('click', ()=>{
+    if(!tracking) startTracking(); else stopTracking();
+  });
+
+  $('discardBtn').addEventListener('click', ()=>{
+    $('saveBox').classList.remove('active');
+    $('tripLive').classList.remove('active');
+  });
+
+  $('saveBtn').addEventListener('click', ()=>{
+    const km = parseFloat($('finalKmInput').value);
+    if(isNaN(km) || km<=0){ $('finalKmInput').focus(); return; }
+    state.trips.push({
+      id: Date.now()+'-'+Math.random().toString(36).slice(2,7),
+      ts: Date.now(),
+      km: km,
+      cat: selectedCat,
+      note: $('noteInput').value.trim()
+    });
+    saveState();
+    $('saveBox').classList.remove('active');
+    $('tripLive').classList.remove('active');
+    render();
+  });
+
+  $('tripList').addEventListener('click', (e)=>{
+    const id = e.target.dataset.del;
+    if(!id) return;
+    if(confirm('Biztosan törlöd ezt a bejegyzést?')){
+      state.trips = state.trips.filter(t=>t.id!==id);
+      saveState(); render();
+    }
+  });
+
+  $('exportBtn').addEventListener('click', ()=>{
+    let csv = 'Datum;Kategoria;Tavolsag_km;Megjegyzes\n';
+    state.trips.forEach(t=>{
+      const d = new Date(t.ts).toLocaleString('hu-HU');
+      csv += `${d};${t.cat==='ceges'?'Ceges':'Magan'};${t.km.toFixed(2).replace('.',',')};${(t.note||'').replace(/;/g,',')}\n`;
+    });
+    const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'utnaplo_' + new Date().toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
