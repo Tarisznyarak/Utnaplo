@@ -121,12 +121,16 @@
   .gps-status{font-size:11.5px;color:var(--text-faint);text-align:center;margin-top:10px;min-height:14px;}
 
   .track-btn{
-    width:100%;padding:16px;border:none;border-radius:13px;font-size:15.5px;font-weight:800;
+    padding:16px;border:none;border-radius:13px;font-size:15.5px;font-weight:800;
     font-family:'Inter';cursor:pointer;margin-top:12px;letter-spacing:.01em;
   }
   .track-btn.start{background:var(--teal);color:#0b1a16;}
   .track-btn.stop{background:var(--danger);color:#2a0a08;}
   .track-btn:active{filter:brightness(.92);}
+  .btn-row{display:flex;gap:8px;align-items:stretch;}
+  .btn-row .track-btn{flex:1;width:auto;margin-top:12px;white-space:nowrap;}
+  .btn-row .track-btn#trackBtn{flex:1.4;}
+  .track-btn.manual{background:transparent;border:1px solid var(--border);color:var(--text-dim);}
 
   /* Save confirm */
   .save-box{display:none;margin-top:14px;padding-top:14px;border-top:1px dashed var(--border);}
@@ -270,9 +274,9 @@
     </div>
     <div class="gps-status" id="gpsStatus"></div>
 
-    <div style="display:flex; gap:8px;">
-      <button class="track-btn start" id="trackBtn" style="flex:1;">Indítás</button>
-      <button class="track-btn" id="manualBtn" style="flex:0 0 auto; background:transparent; border:1px solid var(--border); color:var(--text-dim); padding:16px 16px;">Kézi rögzítés</button>
+    <div class="btn-row">
+      <button class="track-btn start" id="trackBtn">Indítás</button>
+      <button class="track-btn manual" id="manualBtn">Kézi rögzítés</button>
     </div>
     <div class="gps-warning" id="gpsWarning" style="display:none; margin-top:10px; padding:9px 11px; border-radius:9px; background:rgba(226,85,74,.12); border:1px solid rgba(226,85,74,.35); color:#f0a099; font-size:12px; line-height:1.4;"></div>
 
