@@ -172,6 +172,38 @@
     color:var(--text-dim);font-weight:700;font-family:'Inter';cursor:pointer;margin-top:6px;font-size:13.5px;
   }
 
+  /* Tabs (history view switch) */
+  .tabs{display:flex;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:12px;padding:4px;gap:4px;margin-bottom:6px;}
+  .tabs button{flex:1;padding:10px 8px;border:none;border-radius:9px;background:transparent;color:var(--text-dim);font-family:'Inter';font-weight:700;font-size:13.5px;cursor:pointer;}
+  .tabs button.active{background:var(--amber);color:#231602;}
+
+  /* Month / day breakdown */
+  .month-group{margin-top:6px;}
+  .month-header{
+    display:flex;justify-content:space-between;align-items:baseline;padding:10px 2px 8px;
+    font-weight:800;font-size:13.5px;text-transform:capitalize;border-bottom:1px solid var(--border);
+  }
+  .month-totals{display:flex;gap:8px;}
+  .tt{padding:2px 7px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;}
+  .tt.ceges{background:rgba(53,201,165,.14);color:var(--teal);}
+  .tt.magan{background:rgba(255,176,32,.14);color:var(--amber);}
+  .day-row{border-bottom:1px solid var(--border);}
+  .day-row:last-child{border-bottom:none;}
+  .day-row-main{display:flex;align-items:center;justify-content:space-between;padding:11px 2px;cursor:pointer;gap:8px;}
+  .day-row-main:active{background:rgba(255,255,255,.03);}
+  .day-date{display:flex;flex-direction:column;flex:0 0 58px;}
+  .day-num{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;}
+  .day-wd{font-size:10px;color:var(--text-faint);text-transform:capitalize;}
+  .day-kms{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex:1;}
+  .day-odo{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-dim);flex:0 0 auto;min-width:64px;text-align:right;}
+  .day-trips{padding:0 2px 10px 58px;}
+  .mini-trip{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px;color:var(--text-dim);flex-wrap:wrap;border-top:1px dashed var(--border);}
+  .mini-trip:first-child{border-top:none;}
+  .mini-time{font-family:'JetBrains Mono',monospace;color:var(--text);}
+  .mini-km{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--text);}
+  .mini-odo{color:var(--text-faint);font-size:11px;}
+  .mini-note{font-style:italic;color:var(--text-faint);}
+
   /* Overlay / setup */
   .overlay{
     position:fixed;inset:0;background:rgba(10,11,13,.88);backdrop-filter:blur(4px);
@@ -238,12 +270,24 @@
     </div>
     <div class="gps-status" id="gpsStatus"></div>
 
-    <button class="track-btn start" id="trackBtn">Indítás</button>
+    <div style="display:flex; gap:8px;">
+      <button class="track-btn start" id="trackBtn" style="flex:1;">Indítás</button>
+      <button class="track-btn" id="manualBtn" style="flex:0 0 auto; background:transparent; border:1px solid var(--border); color:var(--text-dim); padding:16px 16px;">Kézi rögzítés</button>
+    </div>
+    <div class="gps-warning" id="gpsWarning" style="display:none; margin-top:10px; padding:9px 11px; border-radius:9px; background:rgba(226,85,74,.12); border:1px solid rgba(226,85,74,.35); color:#f0a099; font-size:12px; line-height:1.4;"></div>
 
     <div class="save-box" id="saveBox">
+      <div class="switch" style="margin-bottom:12px;" id="inputModeSwitch">
+        <button class="ceges active" data-mode="distance" style="background:var(--teal); color:#0b1a16;">Megtett táv</button>
+        <button class="magan" data-mode="odometer">Óra állása</button>
+      </div>
       <div class="save-row">
-        <label>Megtett táv</label>
-        <input type="number" step="0.01" id="finalKmInput">
+        <label id="finalKmLabel">Megtett táv (km)</label>
+        <input type="number" step="0.01" id="finalKmInput" placeholder="pl. 8.4">
+      </div>
+      <div class="save-row" id="computedRow" style="display:none;">
+        <label>= Megtett táv</label>
+        <input type="text" id="computedKm" readonly style="opacity:.75;">
       </div>
       <div class="save-row">
         <label>Megjegyzés</label>
@@ -268,7 +312,12 @@
 
   <div class="panel">
     <h2>Útnapló előzmények</h2>
-    <div id="tripList"><div class="empty">Még nincs rögzített út.</div></div>
+    <div class="tabs" id="historyTabSwitch">
+      <button class="active" data-tab="day">Napi bontás</button>
+      <button data-tab="list">Összes út</button>
+    </div>
+    <div id="dayView"></div>
+    <div id="listView" style="display:none;"></div>
   </div>
 
   <div class="footnote">A táv GPS-koordináták alapján, futó összegzéssel számított becslés. Pontos hivatalos nyilvántartáshoz vesd össze a műszerfal kilométeróra állásával.</div>
@@ -331,25 +380,8 @@
     $('pctCeges').textContent = 'Céges '+Math.round(pctC)+'%';
     $('pctMagan').textContent = 'Magán '+Math.round(pctM)+'%';
 
-    const list = $('tripList');
-    if(state.trips.length===0){
-      list.innerHTML = '<div class="empty">Még nincs rögzített út.</div>';
-    }else{
-      list.innerHTML = state.trips.slice().reverse().map(trip=>{
-        const d = new Date(trip.ts);
-        const dateStr = d.toLocaleDateString('hu-HU',{year:'numeric',month:'2-digit',day:'2-digit'}) + ' · ' + d.toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'});
-        return `<div class="trip-item" data-id="${trip.id}">
-          <div class="trip-left">
-            <span class="cat-dot ${trip.cat}"></span>
-            <div>
-              <div class="trip-km">${fmt(trip.km,2)} km</div>
-              <div class="trip-date">${dateStr}${trip.note? ' · '+escapeHtml(trip.note):''}</div>
-            </div>
-          </div>
-          <button class="trip-del" data-del="${trip.id}">✕</button>
-        </div>`;
-      }).join('');
-    }
+    renderDayView();
+    renderListView();
 
     $('setupOverlay').classList.toggle('hidden', state.startKm!=null);
   }
@@ -357,6 +389,132 @@
   function escapeHtml(s){
     return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
+
+  // ---- Running odometer per trip (chronological) ----
+  function tripsWithRunningOdometer(){
+    const sorted = state.trips.slice().sort((a,b)=>a.ts-b.ts);
+    let running = state.startKm||0;
+    return sorted.map(t=>{
+      running += t.km;
+      return Object.assign({}, t, {odo: running});
+    });
+  }
+
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function dayKey(ts){ const d=new Date(ts); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+  function monthKey(ts){ const d=new Date(ts); return d.getFullYear()+'-'+pad2(d.getMonth()+1); }
+  const HU_MONTHS = ['január','február','március','április','május','június','július','augusztus','szeptember','október','november','december'];
+  const HU_WEEKDAYS = ['vasárnap','hétfő','kedd','szerda','csütörtök','péntek','szombat'];
+  const expandedDays = new Set();
+
+  // ---- Tab 1: Napi bontás (hónap → nap, kattintható napi részletezéssel) ----
+  function renderDayView(){
+    const el = $('dayView');
+    const withOdo = tripsWithRunningOdometer();
+    if(withOdo.length===0){ el.innerHTML = '<div class="empty">Még nincs rögzített út.</div>'; return; }
+
+    const months = {};
+    withOdo.forEach(t=>{
+      const mk = monthKey(t.ts), dk = dayKey(t.ts);
+      if(!months[mk]) months[mk] = { trips:[], days:{} };
+      months[mk].trips.push(t);
+      if(!months[mk].days[dk]) months[mk].days[dk] = { trips:[], date:new Date(t.ts) };
+      months[mk].days[dk].trips.push(t);
+    });
+
+    const monthKeys = Object.keys(months).sort().reverse();
+    let html = '';
+    monthKeys.forEach(mk=>{
+      const [y,m] = mk.split('-');
+      const mCeges = months[mk].trips.filter(t=>t.cat==='ceges').reduce((s,t)=>s+t.km,0);
+      const mMagan = months[mk].trips.filter(t=>t.cat==='magan').reduce((s,t)=>s+t.km,0);
+      html += `<div class="month-group">
+        <div class="month-header">
+          <span>${HU_MONTHS[parseInt(m,10)-1]} ${y}</span>
+          <span class="month-totals"><span class="tt ceges">${fmt(mCeges,1)} km</span><span class="tt magan">${fmt(mMagan,1)} km</span></span>
+        </div>`;
+      const dayKeys = Object.keys(months[mk].days).sort().reverse();
+      dayKeys.forEach(dk=>{
+        const day = months[mk].days[dk];
+        const dCeges = day.trips.filter(t=>t.cat==='ceges').reduce((s,t)=>s+t.km,0);
+        const dMagan = day.trips.filter(t=>t.cat==='magan').reduce((s,t)=>s+t.km,0);
+        const dayOdo = Math.max(...day.trips.map(t=>t.odo));
+        const dNum = day.date.getDate();
+        const wd = HU_WEEKDAYS[day.date.getDay()];
+        const isOpen = expandedDays.has(dk);
+        html += `<div class="day-row" data-day="${dk}">
+          <div class="day-row-main">
+            <div class="day-date"><span class="day-num">${dNum}.</span><span class="day-wd">${wd}</span></div>
+            <div class="day-kms">
+              ${dCeges>0?`<span class="tt ceges">${fmt(dCeges,1)} km</span>`:''}
+              ${dMagan>0?`<span class="tt magan">${fmt(dMagan,1)} km</span>`:''}
+            </div>
+            <div class="day-odo">${fmt(dayOdo,0)} km</div>
+          </div>
+          <div class="day-trips" style="display:${isOpen?'block':'none'}">
+            ${day.trips.slice().sort((a,b)=>a.ts-b.ts).map(t=>`
+              <div class="mini-trip">
+                <span class="cat-dot ${t.cat}"></span>
+                <span class="mini-time">${new Date(t.ts).toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'})}</span>
+                <span class="mini-km">${fmt(t.km,2)} km</span>
+                <span class="mini-odo">· ${fmt(t.odo,0)} km állás</span>
+                ${t.note?`<span class="mini-note">· ${escapeHtml(t.note)}</span>`:''}
+              </div>`).join('')}
+          </div>
+        </div>`;
+      });
+      html += `</div>`;
+    });
+    el.innerHTML = html;
+  }
+
+  $('dayView').addEventListener('click', (e)=>{
+    const row = e.target.closest('.day-row');
+    if(!row) return;
+    const dk = row.dataset.day;
+    if(expandedDays.has(dk)) expandedDays.delete(dk); else expandedDays.add(dk);
+    renderDayView();
+  });
+
+  // ---- Tab 2: Összes út (lapos, időrendi lista, kilométeróra-állással) ----
+  function renderListView(){
+    const el = $('listView');
+    const withOdo = tripsWithRunningOdometer().slice().reverse();
+    if(withOdo.length===0){ el.innerHTML = '<div class="empty">Még nincs rögzített út.</div>'; return; }
+    el.innerHTML = withOdo.map(t=>{
+      const d = new Date(t.ts);
+      const dateStr = d.toLocaleDateString('hu-HU',{year:'numeric',month:'2-digit',day:'2-digit'}) + ' · ' + d.toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'});
+      return `<div class="trip-item" data-id="${t.id}">
+        <div class="trip-left">
+          <span class="cat-dot ${t.cat}"></span>
+          <div>
+            <div class="trip-km">${fmt(t.km,2)} km <span style="color:var(--text-faint);font-weight:500;">· ${fmt(t.odo,0)} km állás</span></div>
+            <div class="trip-date">${dateStr}${t.note? ' · '+escapeHtml(t.note):''}</div>
+          </div>
+        </div>
+        <button class="trip-del" data-del="${t.id}">✕</button>
+      </div>`;
+    }).join('');
+  }
+
+  $('listView').addEventListener('click', (e)=>{
+    const id = e.target.dataset.del;
+    if(!id) return;
+    if(confirm('Biztosan törlöd ezt a bejegyzést?')){
+      state.trips = state.trips.filter(t=>t.id!==id);
+      saveState(); render();
+    }
+  });
+
+  $('historyTabSwitch').addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-tab]');
+    if(!btn) return;
+    document.querySelectorAll('#historyTabSwitch button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    $('dayView').style.display = tab==='day' ? '' : 'none';
+    $('listView').style.display = tab==='list' ? '' : 'none';
+  });
 
   // ---- Setup ----
   $('setupSave').addEventListener('click', ()=>{
@@ -391,6 +549,30 @@
   let startTime = null;
   let timerInt = null;
   let lastGoodSpeed = 0;
+  let wakeLock = null;
+  let wentHiddenDuringTrip = false;
+
+  async function requestWakeLock(){
+    if(!('wakeLock' in navigator)) return;
+    try{
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', ()=>{ wakeLock = null; });
+    }catch(e){ /* e.g. low battery mode blocks it — silently ignore */ }
+  }
+  function releaseWakeLock(){
+    if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock = null; }
+  }
+
+  document.addEventListener('visibilitychange', ()=>{
+    if(!tracking) return;
+    if(document.visibilityState === 'hidden'){
+      wentHiddenDuringTrip = true;
+      $('gpsWarning').style.display = 'block';
+      $('gpsWarning').textContent = '⚠️ Az app háttérbe került vagy a telefon zárolva van — iOS-en ilyenkor a mérés szünetelhet. Ha kihagyást tapasztalsz, a mentésnél válts "Óra állása" módra és írd be a valós km-órát.';
+    } else if(document.visibilityState === 'visible'){
+      requestWakeLock(); // must be re-acquired after returning to foreground
+    }
+  });
 
   function haversine(lat1, lon1, lat2, lon2){
     const R = 6371000;
@@ -418,11 +600,15 @@
     }
     tracking = true;
     distanceM = 0; lastPos = null; startTime = Date.now(); lastGoodSpeed = 0;
+    wentHiddenDuringTrip = false;
     $('tripLive').classList.add('active');
     $('trackBtn').textContent = 'Megállítás';
     $('trackBtn').classList.remove('start'); $('trackBtn').classList.add('stop');
+    $('manualBtn').style.display = 'none';
     $('saveBox').classList.remove('active');
+    $('gpsWarning').style.display = 'none';
     $('gpsStatus').textContent = 'GPS-jel keresése…';
+    requestWakeLock();
 
     timerInt = setInterval(updateLiveUI, 1000);
 
@@ -460,10 +646,13 @@
     tracking = false;
     if(watchId!=null) navigator.geolocation.clearWatch(watchId);
     if(timerInt) clearInterval(timerInt);
+    releaseWakeLock();
     $('trackBtn').textContent = 'Indítás';
     $('trackBtn').classList.add('start'); $('trackBtn').classList.remove('stop');
+    $('manualBtn').style.display = '';
     $('gpsStatus').textContent = '';
 
+    setInputMode('distance');
     $('finalKmInput').value = (distanceM/1000).toFixed(2);
     $('noteInput').value = '';
     $('saveBox').classList.add('active');
@@ -473,13 +662,72 @@
     if(!tracking) startTracking(); else stopTracking();
   });
 
+  $('manualBtn').addEventListener('click', ()=>{
+    $('tripLive').classList.remove('active');
+    $('gpsWarning').style.display = 'none';
+    setInputMode('odometer');
+    $('finalKmInput').value = '';
+    $('noteInput').value = '';
+    $('saveBox').classList.add('active');
+    $('finalKmInput').focus();
+  });
+
   $('discardBtn').addEventListener('click', ()=>{
     $('saveBox').classList.remove('active');
     $('tripLive').classList.remove('active');
   });
 
+  // ---- Input mode: distance vs absolute odometer reading ----
+  let inputMode = 'distance';
+  function setInputMode(mode){
+    inputMode = mode;
+    document.querySelectorAll('#inputModeSwitch button').forEach(b=>{
+      b.classList.remove('active');
+      b.style.background=''; b.style.color='';
+    });
+    const activeBtn = document.querySelector(`#inputModeSwitch button[data-mode="${mode}"]`);
+    activeBtn.classList.add('active');
+    if(mode==='distance'){
+      activeBtn.style.background='var(--teal)'; activeBtn.style.color='#0b1a16';
+      $('finalKmLabel').textContent = 'Megtett táv (km)';
+      $('finalKmInput').placeholder = 'pl. 8.4';
+      $('computedRow').style.display = 'none';
+    }else{
+      activeBtn.style.background='var(--amber)'; activeBtn.style.color='#231602';
+      $('finalKmLabel').textContent = 'Autó km-órája most';
+      $('finalKmInput').placeholder = 'pl. 98345';
+      $('computedRow').style.display = 'flex';
+      updateComputedKm();
+    }
+  }
+  function currentOdometer(){
+    return (state.startKm||0) + totals().sum;
+  }
+  function updateComputedKm(){
+    if(inputMode!=='odometer') return;
+    const entered = parseFloat($('finalKmInput').value);
+    const cur = currentOdometer();
+    if(isNaN(entered)){ $('computedKm').value=''; return; }
+    const diff = entered - cur;
+    $('computedKm').value = diff>=0 ? fmt(diff,2)+' km' : 'hibás érték (kisebb, mint a jelenlegi ' + fmt(cur,0) + ' km)';
+  }
+  $('inputModeSwitch').addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-mode]');
+    if(!btn) return;
+    setInputMode(btn.dataset.mode);
+  });
+  $('finalKmInput').addEventListener('input', updateComputedKm);
+
   $('saveBtn').addEventListener('click', ()=>{
-    const km = parseFloat($('finalKmInput').value);
+    let km;
+    if(inputMode==='odometer'){
+      const entered = parseFloat($('finalKmInput').value);
+      const cur = currentOdometer();
+      if(isNaN(entered) || entered <= cur){ $('finalKmInput').focus(); return; }
+      km = entered - cur;
+    }else{
+      km = parseFloat($('finalKmInput').value);
+    }
     if(isNaN(km) || km<=0){ $('finalKmInput').focus(); return; }
     state.trips.push({
       id: Date.now()+'-'+Math.random().toString(36).slice(2,7),
@@ -492,15 +740,6 @@
     $('saveBox').classList.remove('active');
     $('tripLive').classList.remove('active');
     render();
-  });
-
-  $('tripList').addEventListener('click', (e)=>{
-    const id = e.target.dataset.del;
-    if(!id) return;
-    if(confirm('Biztosan törlöd ezt a bejegyzést?')){
-      state.trips = state.trips.filter(t=>t.id!==id);
-      saveState(); render();
-    }
   });
 
   $('exportBtn').addEventListener('click', ()=>{
